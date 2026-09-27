@@ -25,7 +25,28 @@ function createServer({ shareTokensPath } = {}) {
   const handlePublicRoute = makePublicRouteHandler(shareTokenStore);
 
   return http.createServer(async (req, res) => {
+    // Dashboard integration note: the agent-manager dashboard's own plugin-tab
+    // mechanism (docs/PLUGIN_API.md "Dashboard tab") does not yet support a tab for a
+    // server-slotted plugin -- only a script-loaded one. So, like the PromptForge/
+    // ScriptForge companions, WikiForge's dashboard tab fetches this server directly
+    // from the browser, cross-origin from the dashboard's own :7420 -- CORS headers
+    // are required for that, not optional decoration.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/healthz') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
     const handlers = [handleSpacesRoute, handlePagesRoute, handlePublicRoute];
     for (const handler of handlers) {
       // eslint-disable-next-line no-await-in-loop
@@ -38,7 +59,7 @@ function createServer({ shareTokensPath } = {}) {
 
 if (require.main === module) {
   registerDefaultSpaces();
-  const port = process.env.PORT || 7421;
+  const port = process.env.WIKIFORGE_PORT || 7421;
   const shareTokensPath = path.join(__dirname, '..', 'share-tokens.json');
   createServer({ shareTokensPath }).listen(port, () => {
     console.log(`WikiForge listening on :${port}`);

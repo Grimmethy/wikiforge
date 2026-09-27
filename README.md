@@ -50,14 +50,16 @@ docs/
 ## Running
 
 ```bash
-npm test                                    # node --test test/*.test.js
-WIKIFORGE_SECOND_BRAIN_ROOT=/media/model-cache/github/SecondBrain npm start
+npm test                        # node --test test/*.test.js
+scripts/start.sh                 # starts against the real SecondBrain vault, backgrounded
 ```
 
-Setting `WIKIFORGE_SECOND_BRAIN_ROOT` registers the first real integration -- an
-`agent-manager` space, read-write against the actual vault, as its own adapter instance.
-Leaving it unset starts the server with zero spaces registered (safe default; nothing
-touches the real vault unless explicitly pointed at it).
+`scripts/start.sh` defaults `WIKIFORGE_SECOND_BRAIN_ROOT` to the real live vault
+(`/media/wok/model-cache/SecondBrain`, matching agent-manager.env's own `SECOND_BRAIN_DIR`)
+and `WIKIFORGE_PORT` to `7421`; override either as env vars before calling it. Running
+`node src/server.js` directly (e.g. for tests, or `npm start`) leaves
+`WIKIFORGE_SECOND_BRAIN_ROOT` unset by default, registering zero spaces -- nothing
+touches the real vault unless explicitly pointed at it.
 
 ## API surface (v1)
 
@@ -75,11 +77,31 @@ functions exist in `src/journal.js` but aren't wired to a route yet), a
 share-token itself, and a second (non-git) storage adapter for a from-scratch space like
 PropertyForager's.
 
+## Dashboard integration
+
+Registered as a real agent-manager plugin (`POST /api/plugins/add`, live in
+`plugins.json`) with a manifest-driven dashboard tab (`ui/wikiforge-tab.js`,
+`docs/PLUGIN_API.md` "Dashboard tab" in agent-manager) -- 📖 WikiForge shows up as a real
+nav tab. agent-manager's plugin-tab mechanism doesn't yet support a tab for a
+process-managed ("slotted") plugin, only a script-loaded one -- so, like the
+PromptForge/ScriptForge companions, this server is started independently
+(`scripts/start.sh`), not by agent-manager's own process manager. The tab fetches this
+server directly, cross-origin from the dashboard's own port (`src/server.js`'s CORS
+headers exist for exactly this) and renders the real response natively -- a journal
+view grouped by the vault's own date-prefix convention, click-through to a page's real
+body (via the dashboard's existing markdown renderer) and its real backlinks. No iframe:
+this is the Outline-style embedding principle from the design brain dump, proven against
+the dashboard's own real plugin-tab machinery, not a mock of it.
+
 ## Status
 
 Scaffolded 2026-09-27 from the design in agent-manager brain-dump entry
 `bd-1790485555882`. Core (adapters, backlinks, journal, share tokens, pages
-orchestration, the HTTP server and its three route groups) is real and tested -- 26
+orchestration, the HTTP server and its three route groups) is real and tested -- 29
 passing tests, plus a real end-to-end smoke test of the server against a throwaway
-fixture space. Not yet done: wiring this into agent-manager's dashboard as a real
-Concepts-tab consumer, and a PropertyForager space/integration.
+fixture space. The dashboard integration above is real and live: verified the plugin
+entry persisted to the real `plugins.json`, the tab script is served byte-identical to
+the file on disk through agent-manager's real route, and the server (started via
+`scripts/start.sh`) returns 1,356 real pages from the live SecondBrain vault. Not yet
+done: a PropertyForager space/adapter, and confirming the tab renders correctly in an
+actual browser (verified via the HTTP layer only, not a browser session).
