@@ -54,7 +54,9 @@ src/
   routes/
     spaces.js, pages.js, templates.js, public.js
 ui/
-  wikiforge-tab.js          agent-manager's native (non-iframe) dashboard tab
+  secondbrain-tab.js         native dashboard tab for the 'secondbrain' space
+  agent-manager-wiki-tab.js  native dashboard tab for the 'agent-manager' space (sibling
+                             file, not a shared import -- see its own header comment)
 test/                      real tests, no mocks of WikiForge's own code
 docs/
   ADAPTER_API.md            how to write a new storage adapter
@@ -67,12 +69,24 @@ npm test                        # node --test test/*.test.js
 scripts/start.sh                 # starts against the real SecondBrain vault, backgrounded
 ```
 
-`scripts/start.sh` defaults `WIKIFORGE_SECOND_BRAIN_ROOT` to the real live vault
-(`/media/wok/model-cache/SecondBrain`, matching agent-manager.env's own `SECOND_BRAIN_DIR`)
-and `WIKIFORGE_PORT` to `7421`; override either as env vars before calling it. Running
-`node src/server.js` directly (e.g. for tests, or `npm start`) leaves
-`WIKIFORGE_SECOND_BRAIN_ROOT` unset by default, registering zero spaces -- nothing
-touches the real vault unless explicitly pointed at it.
+`scripts/start.sh` registers two real spaces by default:
+
+- `secondbrain`, from `WIKIFORGE_SECOND_BRAIN_ROOT` (default
+  `/media/wok/model-cache/SecondBrain`, matching agent-manager.env's own
+  `SECOND_BRAIN_DIR`) -- the operator's personal notes vault.
+- `agent-manager`, from `WIKIFORGE_AM_WIKI_ROOT` (default
+  `/media/wok/model-cache/wikiforge-agent-manager`, a clone of the separate
+  [wikiforge-agent-manager](https://github.com/Grimmethy/wikiforge-agent-manager) repo)
+  -- real knowledge about Agent Manager's own functioning.
+
+These are deliberately separate spaces and separate dashboard tabs (📓 SecondBrain,
+📖 Agent Manager Wiki) -- a personal notes vault and a project's own reference material
+answer different questions, and treating them as one space (WikiForge's original
+mistake) made that impossible to navigate. `WIKIFORGE_PORT` defaults to `7421`; override
+any of the three as env vars before calling `scripts/start.sh`. Running `node
+src/server.js` directly (e.g. for tests, or `npm start`) leaves both root env vars
+unset by default, registering zero spaces -- nothing touches real data unless
+explicitly pointed at it.
 
 ## API surface (v1)
 
@@ -100,28 +114,34 @@ space like PropertyForager's.
 
 ## Dashboard integration
 
-Registered as a real agent-manager plugin (`POST /api/plugins/add`, live in
-`plugins.json`) with a manifest-driven dashboard tab (`ui/wikiforge-tab.js`,
-`docs/PLUGIN_API.md` "Dashboard tab" in agent-manager) -- 📖 WikiForge shows up as a real
-nav tab. agent-manager's plugin-tab mechanism doesn't yet support a tab for a
-process-managed ("slotted") plugin, only a script-loaded one -- so, like the
-PromptForge/ScriptForge companions, this server is started independently
-(`scripts/start.sh`), not by agent-manager's own process manager. The tab fetches this
-server directly, cross-origin from the dashboard's own port (`src/server.js`'s CORS
-headers exist for exactly this) and renders the real response natively -- a
-**collapsible-by-category sidebar** (native `<details>`, one per category, expanded
-state preserved across the dashboard's 5s poll re-renders), a **Home** link, and a
-**"+ New page"** form backed by `/api/templates`. Click-through shows a page's real
-body (via the dashboard's existing markdown renderer) and its real backlinks. No iframe:
-this is the Outline-style embedding principle from the design brain dump, proven against
-the dashboard's own real plugin-tab machinery, not a mock of it.
+Registered as two real agent-manager plugins (hand-edited into `plugins.json` per
+`docs/PLUGIN_API.md`'s explicit "by hand, or via `POST /api/plugins/add`") with
+manifest-driven dashboard tabs -- 📓 SecondBrain (`wikiforge-secondbrain`,
+`ui/secondbrain-tab.js`) and 📖 Agent Manager Wiki (`wikiforge-agent-manager`,
+`ui/agent-manager-wiki-tab.js`) both show up as real nav tabs. Two entries because
+agent-manager's plugin-tab mechanism validates one `registerPath` per plugin name, so
+each tab gets its own trivial no-op file (`register.js`, `register-am-wiki.js`) even
+though both resolve to this same repo's shared `ui/` directory. agent-manager's
+plugin-tab mechanism also doesn't yet support a tab for a process-managed ("slotted")
+plugin, only a script-loaded one -- so, like the PromptForge/ScriptForge companions,
+this server is started independently (`scripts/start.sh`), not by agent-manager's own
+process manager.
 
-The category grid replaces what used to be a single flat, ungrouped page list -- against
-the real live SecondBrain vault (1,356 pages), that one list is now 11 real categories
-(`Agent Manager Reports`, `Journal`, `Projects`, `Ideas`, `Research`, ... derived from
-the vault's own folder structure, zero manual tagging needed), each collapsed by
-default. The `Journal` category additionally nests by date, since it's the one likely to
-hold hundreds of entries on its own.
+Each tab fetches this server directly, cross-origin from the dashboard's own port
+(`src/server.js`'s CORS headers exist for exactly this) and renders the real response
+natively -- a **collapsible-by-category sidebar** (native `<details>`, one per category,
+expanded state preserved across the dashboard's 5s poll re-renders), a **Home** link,
+and a **"+ New page"** form backed by `/api/templates`. Click-through shows a page's
+real body (via the dashboard's existing markdown renderer) and its real backlinks. No
+iframe: this is the Outline-style embedding principle from the design brain dump,
+proven against the dashboard's own real plugin-tab machinery, not a mock of it.
+
+The two tab files are near-identical (same categories/templates/home logic, different
+`WIKIFORGE_SPACE_ID`) but kept as separate self-contained files rather than one shared
+module, wrapped in an IIFE each -- a plugin tab's script loads lazily as a plain classic
+`<script>` only when its tab is first visited, and classic `<script>` tags share one
+global scope, so two files declaring the same top-level `let` would be a real
+`SyntaxError` if a user visits both tabs in one session without the IIFE wrapper.
 
 ## Status
 
@@ -130,13 +150,19 @@ Scaffolded 2026-09-27 from the design in agent-manager brain-dump entry
 against the RuneScape Wiki's front page (borrowed: category grid, guide index, a fixed
 front page -- deliberately *not* borrowed: requiring a volunteer-editor community to
 keep a hand-built hub page from rotting; a template + deterministic category index does
-that job here instead). Core (adapters, backlinks, journal, categories, templates, share
-tokens, pages orchestration, the HTTP server and its five route groups) is real and
-tested -- 61 passing tests. The dashboard integration is real and live: verified the
-plugin entry persisted to the real `plugins.json`, the tab script is served
-byte-identical to the file on disk through agent-manager's real route, the server
-(started via `scripts/start.sh`) returns categorized real data from the live
-SecondBrain vault, and a real `home` page was created against it through the template
-flow end-to-end. Not yet done: a PropertyForager space/adapter, and confirming the tab
-renders correctly in an actual browser (verified via the HTTP layer only, not a browser
-session).
+that job here instead); split into two spaces/tabs the same day after recognizing the
+original single `agent-manager` space (pointed at the SecondBrain vault) was a naming
+mistake, not a scope decision -- real Agent Manager knowledge now lives in its own
+public content repo, [wikiforge-agent-manager](https://github.com/Grimmethy/wikiforge-agent-manager).
+
+Core (adapters, backlinks, journal, categories, templates, share tokens, pages
+orchestration, the HTTP server and its five route groups) is real and tested -- 68
+passing tests. The dashboard integration is real and live: both tab scripts are served
+byte-identical to the files on disk through agent-manager's real route, and the server
+(started via `scripts/start.sh`) returns distinct, correctly-scoped real data for each
+space -- 1,357 SecondBrain pages, and the seeded Agent Manager Wiki content. Not yet
+done: the PropertyForager space/adapter (its content repo,
+[propertyforager-wiki](https://github.com/Grimmethy/propertyforager-wiki), exists but is
+an empty placeholder -- no content design pass has happened yet), and confirming either
+tab renders correctly in an actual browser (verified via the HTTP layer only, not a
+browser session).

@@ -10,14 +10,26 @@ const { ShareTokenStore } = require('./share-tokens');
 const { registerSpace } = require('./spaces');
 const { GitMarkdownAdapter } = require('./storage/git-markdown-adapter');
 
-// Registers the first real integration named in the design brain dump
-// (bd-1790485555882): agent-manager's own space, read-only-in-practice today, backed
-// directly by the real SecondBrain vault -- zero migration. Guarded by an env var so
-// requiring this module (e.g. from tests) never touches the real vault unless asked.
+// Registers WikiForge's two real integrations named in the design brain dump
+// (bd-1790485555882) and its 2026-09-27 follow-up: two DELIBERATELY SEPARATE spaces,
+// each guarded by its own env var so requiring this module (e.g. from tests) never
+// touches real data unless asked.
+//
+// - 'secondbrain': the operator's own personal notes vault (Journal, Ideas, Projects,
+//   Characters, ...). This was originally (wrongly) named 'agent-manager' -- a notes
+//   vault is not "Agent Manager knowledge," it's the pipeline operator's own second
+//   brain, which happens to contain a project among many.
+// - 'agent-manager': REAL Agent Manager knowledge -- what's in the pipeline and how to
+//   use it (concepts, pipeline stages, dashboard, plugin system, config), content
+//   sourced from the separate wikiforge-agent-manager repo, not the vault above.
 function registerDefaultSpaces() {
   const secondBrainRoot = process.env.WIKIFORGE_SECOND_BRAIN_ROOT;
   if (secondBrainRoot) {
-    registerSpace('agent-manager', new GitMarkdownAdapter(secondBrainRoot), { name: 'Agent Manager SecondBrain' });
+    registerSpace('secondbrain', new GitMarkdownAdapter(secondBrainRoot), { name: 'SecondBrain' });
+  }
+  const amWikiRoot = process.env.WIKIFORGE_AM_WIKI_ROOT;
+  if (amWikiRoot) {
+    registerSpace('agent-manager', new GitMarkdownAdapter(amWikiRoot), { name: 'Agent Manager Wiki' });
   }
 }
 
