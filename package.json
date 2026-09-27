@@ -1,0 +1,12 @@
+{
+  "name": "wikiforge",
+  "version": "0.1.0",
+  "description": "Standalone, multi-space wiki/knowledge-base service with pluggable storage adapters",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "UNLICENSED"
+}
