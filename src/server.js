@@ -4,6 +4,7 @@ const http = require('http');
 const path = require('path');
 const { handleSpacesRoute } = require('./routes/spaces');
 const { handlePagesRoute } = require('./routes/pages');
+const { handleTemplatesRoute } = require('./routes/templates');
 const { makePublicRouteHandler } = require('./routes/public');
 const { ShareTokenStore } = require('./share-tokens');
 const { registerSpace } = require('./spaces');
@@ -47,7 +48,7 @@ function createServer({ shareTokensPath } = {}) {
       return;
     }
 
-    const handlers = [handleSpacesRoute, handlePagesRoute, handlePublicRoute];
+    const handlers = [handleSpacesRoute, handlePagesRoute, handleTemplatesRoute, handlePublicRoute];
     for (const handler of handlers) {
       // eslint-disable-next-line no-await-in-loop
       if (await handler(req, res, url)) return;
