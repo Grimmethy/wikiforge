@@ -25,6 +25,10 @@ const { GitMarkdownAdapter } = require('./storage/git-markdown-adapter');
 // - 'wikiforge': WikiForge's own design/API/integration knowledge, content sourced from
 //   the separate wikiforge-wiki repo -- self-hosting its own documentation the same way
 //   the 'agent-manager' space does for Agent Manager.
+// - 'propertyforager': PropertyForager's RE-SFA coaching-call content, content sourced
+//   from the separate propertyforager-wiki repo -- the first space fed by a real
+//   automated content pipeline (content-pipeline/'s wiki_transcript_extract/
+//   wiki_page_promote task sources) rather than hand-authored pages.
 function registerDefaultSpaces() {
   const secondBrainRoot = process.env.WIKIFORGE_SECOND_BRAIN_ROOT;
   if (secondBrainRoot) {
@@ -37,6 +41,10 @@ function registerDefaultSpaces() {
   const wikiforgeWikiRoot = process.env.WIKIFORGE_WIKIFORGE_ROOT;
   if (wikiforgeWikiRoot) {
     registerSpace('wikiforge', new GitMarkdownAdapter(wikiforgeWikiRoot), { name: 'WikiForge Wiki' });
+  }
+  const propertyForagerRoot = process.env.WIKIFORGE_PROPERTYFORAGER_ROOT;
+  if (propertyForagerRoot) {
+    registerSpace('propertyforager', new GitMarkdownAdapter(propertyForagerRoot), { name: 'PropertyForager Wiki' });
   }
 }
 
