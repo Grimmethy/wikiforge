@@ -10,7 +10,7 @@
 const path = require('path');
 const fs = require('fs');
 const { registerTaskSource } = require('agent-manager/src/task-source-registry.js');
-const { nextUnpromotedCandidate, markCandidatePromoted, unpromotedCountForTranscript } = require('./candidate-block.js');
+const { allUnpromotedCandidates, markCandidatePromoted, unpromotedCountForTranscript } = require('./candidate-block.js');
 const { readCoverage, updateCoverageEntry } = require('./coverage-store.js');
 const { wikiPagePromotePlanPrompt, wikiPagePromoteImplementPrompt } = require('./prompts.js');
 
@@ -20,25 +20,28 @@ function slugifyForId(str) {
 
 function nextWikiPagePromoteTask({ spaces, taskIdExistsInQueue }) {
   for (const [spaceId, space] of Object.entries(spaces)) {
-    const candidate = nextUnpromotedCandidate(space.contentRepoRoot);
-    if (!candidate) continue;
-    const taskId = `wiki-promote-${slugifyForId(spaceId)}-${slugifyForId(candidate.slug)}`;
-    if (taskIdExistsInQueue(taskId)) continue;
+    // Try each unpromoted candidate in document order, not just the oldest -- a task id
+    // already queued (still blocked/pending from an earlier attempt) must not block
+    // every OTHER real, ready candidate behind it from ever getting queued.
+    for (const candidate of allUnpromotedCandidates(space.contentRepoRoot)) {
+      const taskId = `wiki-promote-${slugifyForId(spaceId)}-${slugifyForId(candidate.slug)}`;
+      if (taskIdExistsInQueue(taskId)) continue;
 
-    return {
-      id: taskId,
-      domain: 'wiki_content',
-      source: 'wiki_page_promote',
-      title: `Publish confirmation: ${candidate.title} (${space.label})`,
-      promptContext: {
-        spaceId,
-        transcriptId: candidate.transcriptId,
-        category: candidate.category,
-        slug: candidate.slug,
-        title: candidate.title,
-        markdown: candidate.markdown,
-      },
-    };
+      return {
+        id: taskId,
+        domain: 'wiki_content',
+        source: 'wiki_page_promote',
+        title: `Publish confirmation: ${candidate.title} (${space.label})`,
+        promptContext: {
+          spaceId,
+          transcriptId: candidate.transcriptId,
+          category: candidate.category,
+          slug: candidate.slug,
+          title: candidate.title,
+          markdown: candidate.markdown,
+        },
+      };
+    }
   }
   return null;
 }

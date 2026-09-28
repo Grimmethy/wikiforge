@@ -123,11 +123,24 @@ function appendCandidates(contentRepoRoot, { transcriptId, validCategories, sess
 }
 
 // The oldest (document-order-first) block with no PROMOTED: line yet, or null if every
-// candidate currently in the doc has already been promoted (or none exist).
+// candidate currently in the doc has already been promoted (or none exist). NOTE: a
+// caller that needs to skip past one already in flight (e.g. still sitting blocked/
+// pending from an earlier attempt, same task id) should use allUnpromotedCandidates()
+// instead -- this only ever returns the single oldest, real bug found live 2026-09-28:
+// wiki_page_promote's own next() returned null for an entire space the moment its
+// oldest candidate's task id already existed anywhere in queue, even with 18 other
+// real, ready candidates waiting right behind it.
 function nextUnpromotedCandidate(contentRepoRoot) {
   const doc = readCandidatesDoc(contentRepoRoot);
   const pages = parsePageBlocks(doc);
   return pages.find((p) => !p.promoted) || null;
+}
+
+// Every still-unpromoted block, oldest first -- lets a caller try each in turn (e.g.
+// skipping one whose task id is already queued from an earlier attempt) instead of
+// bailing the moment the single oldest one is unavailable.
+function allUnpromotedCandidates(contentRepoRoot) {
+  return parsePageBlocks(readCandidatesDoc(contentRepoRoot)).filter((p) => !p.promoted);
 }
 
 // Splices a `PROMOTED: <marker>` line right after the matching candidate's header
@@ -156,4 +169,4 @@ function markCandidatePromoted(contentRepoRoot, candidate, marker) {
   return false;
 }
 
-module.exports = { parsePageBlocks, candidatesDocPath, readCandidatesDoc, appendCandidates, nextUnpromotedCandidate, markCandidatePromoted, unpromotedCountForTranscript };
+module.exports = { parsePageBlocks, candidatesDocPath, readCandidatesDoc, appendCandidates, nextUnpromotedCandidate, allUnpromotedCandidates, markCandidatePromoted, unpromotedCountForTranscript };
