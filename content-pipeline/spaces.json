@@ -1,0 +1,17 @@
+{
+  "propertyforager": {
+    "label": "PropertyForager / RE-SFA coaching transcripts",
+    "contentRepoRoot": "/media/model-cache/github/propertyforager-wiki",
+    "sourcePool": "/media/wok/model-cache/projects/RE-SFA-Meeting-Transcripts/normalized",
+    "categories": [
+      "Group Coaching & Case Studies",
+      "Deal Structuring & Legal",
+      "Prospecting & Lead Gen",
+      "Guest Speakers & Vendor Demos",
+      "Tools & AI",
+      "Liens & Tax Sales",
+      "Commercial Real Estate",
+      "Community & Mindset"
+    ]
+  }
+}

@@ -8,5 +8,8 @@
     "start": "node src/server.js",
     "test": "node --test test/*.test.js"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "agent-manager": "file:../agent-manager"
+  }
 }
