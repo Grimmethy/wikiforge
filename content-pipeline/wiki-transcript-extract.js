@@ -111,6 +111,12 @@ function register({ spaces, taskIdExistsInQueue }) {
     next: () => nextWikiTranscriptExtractTask({ spaces, taskIdExistsInQueue }),
     buildPlanPrompt: wikiTranscriptExtractPlanPrompt,
     buildImplementPrompt: wikiTranscriptExtractImplementPrompt,
+    // 2026-09-28: a redraft here is a genuine 15-40min plan+implement+critique cycle,
+    // and running the full 146-transcript backlog overnight, one attempt and done beats
+    // spending that time re-attempting a transcript that already failed once -- a fresh
+    // transcript is waiting either way. Requires agent-manager core PR #501
+    // (reject-retry-check.js's noAutoRetry opt-out); no effect on any other source.
+    noAutoRetry: true,
     // No `apply` field here -- the wiki_content domain never reaches writeArtifact's
     // per-source dispatch (apply-task.js intercepts the whole domain before that point).
     // Real application happens through the wiki-content-apply-route.js seam registered in

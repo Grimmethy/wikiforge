@@ -100,6 +100,8 @@ function register({ spaces, taskIdExistsInQueue }) {
     next: () => nextWikiPagePromoteTask({ spaces, taskIdExistsInQueue }),
     buildPlanPrompt: wikiPagePromotePlanPrompt,
     buildImplementPrompt: wikiPagePromoteImplementPrompt,
+    // Same reasoning as wiki_transcript_extract's noAutoRetry -- see that file's comment.
+    noAutoRetry: true,
   });
 }
 
