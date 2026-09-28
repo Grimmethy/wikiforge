@@ -8,8 +8,9 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${WIKIFORGE_SECOND_BRAIN_ROOT:=/media/wok/model-cache/SecondBrain}"
 : "${WIKIFORGE_AM_WIKI_ROOT:=/media/wok/model-cache/wikiforge-agent-manager}"
+: "${WIKIFORGE_WIKIFORGE_ROOT:=/media/model-cache/github/wikiforge-wiki}"
 : "${WIKIFORGE_PORT:=7421}"
-export WIKIFORGE_SECOND_BRAIN_ROOT WIKIFORGE_AM_WIKI_ROOT WIKIFORGE_PORT
+export WIKIFORGE_SECOND_BRAIN_ROOT WIKIFORGE_AM_WIKI_ROOT WIKIFORGE_WIKIFORGE_ROOT WIKIFORGE_PORT
 
 STATE_DIR="${HOME}/.local/state/wikiforge"
 mkdir -p "${STATE_DIR}"

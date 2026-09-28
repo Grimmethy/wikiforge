@@ -10,10 +10,10 @@ const { ShareTokenStore } = require('./share-tokens');
 const { registerSpace } = require('./spaces');
 const { GitMarkdownAdapter } = require('./storage/git-markdown-adapter');
 
-// Registers WikiForge's two real integrations named in the design brain dump
-// (bd-1790485555882) and its 2026-09-27 follow-up: two DELIBERATELY SEPARATE spaces,
-// each guarded by its own env var so requiring this module (e.g. from tests) never
-// touches real data unless asked.
+// Registers WikiForge's real integrations named in the design brain dump
+// (bd-1790485555882) and its 2026-09-27/2026-09-28 follow-ups: DELIBERATELY SEPARATE
+// spaces, each guarded by its own env var so requiring this module (e.g. from tests)
+// never touches real data unless asked.
 //
 // - 'secondbrain': the operator's own personal notes vault (Journal, Ideas, Projects,
 //   Characters, ...). This was originally (wrongly) named 'agent-manager' -- a notes
@@ -22,6 +22,9 @@ const { GitMarkdownAdapter } = require('./storage/git-markdown-adapter');
 // - 'agent-manager': REAL Agent Manager knowledge -- what's in the pipeline and how to
 //   use it (concepts, pipeline stages, dashboard, plugin system, config), content
 //   sourced from the separate wikiforge-agent-manager repo, not the vault above.
+// - 'wikiforge': WikiForge's own design/API/integration knowledge, content sourced from
+//   the separate wikiforge-wiki repo -- self-hosting its own documentation the same way
+//   the 'agent-manager' space does for Agent Manager.
 function registerDefaultSpaces() {
   const secondBrainRoot = process.env.WIKIFORGE_SECOND_BRAIN_ROOT;
   if (secondBrainRoot) {
@@ -30,6 +33,10 @@ function registerDefaultSpaces() {
   const amWikiRoot = process.env.WIKIFORGE_AM_WIKI_ROOT;
   if (amWikiRoot) {
     registerSpace('agent-manager', new GitMarkdownAdapter(amWikiRoot), { name: 'Agent Manager Wiki' });
+  }
+  const wikiforgeWikiRoot = process.env.WIKIFORGE_WIKIFORGE_ROOT;
+  if (wikiforgeWikiRoot) {
+    registerSpace('wikiforge', new GitMarkdownAdapter(wikiforgeWikiRoot), { name: 'WikiForge Wiki' });
   }
 }
 

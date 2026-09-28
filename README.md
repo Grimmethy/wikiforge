@@ -69,7 +69,7 @@ npm test                        # node --test test/*.test.js
 scripts/start.sh                 # starts against the real SecondBrain vault, backgrounded
 ```
 
-`scripts/start.sh` registers two real spaces by default:
+`scripts/start.sh` registers three real spaces by default:
 
 - `secondbrain`, from `WIKIFORGE_SECOND_BRAIN_ROOT` (default
   `/media/wok/model-cache/SecondBrain`, matching agent-manager.env's own
@@ -78,13 +78,18 @@ scripts/start.sh                 # starts against the real SecondBrain vault, ba
   `/media/wok/model-cache/wikiforge-agent-manager`, a clone of the separate
   [wikiforge-agent-manager](https://github.com/Grimmethy/wikiforge-agent-manager) repo)
   -- real knowledge about Agent Manager's own functioning.
+- `wikiforge`, from `WIKIFORGE_WIKIFORGE_ROOT` (default
+  `/media/model-cache/github/wikiforge-wiki`, a clone of the separate
+  [wikiforge-wiki](https://github.com/Grimmethy/wikiforge-wiki) repo) -- real knowledge
+  about WikiForge's own design/API/dashboard integration, self-hosting its own docs.
 
 These are deliberately separate spaces and separate dashboard tabs (📓 SecondBrain,
-📖 Agent Manager Wiki) -- a personal notes vault and a project's own reference material
-answer different questions, and treating them as one space (WikiForge's original
-mistake) made that impossible to navigate. `WIKIFORGE_PORT` defaults to `7421`; override
-any of the three as env vars before calling `scripts/start.sh`. Running `node
-src/server.js` directly (e.g. for tests, or `npm start`) leaves both root env vars
+📖 Agent Manager Wiki, 🧩 WikiForge Wiki) -- a personal notes vault and a project's own
+reference material answer different questions, and treating them as one space
+(WikiForge's original mistake) made that impossible to navigate. `WIKIFORGE_PORT`
+defaults to `7421`; override any of the four as env vars before calling
+`scripts/start.sh`. Running `node src/server.js` directly (e.g. for tests, or `npm
+start`) leaves all root env vars
 unset by default, registering zero spaces -- nothing touches real data unless
 explicitly pointed at it.
 
@@ -155,14 +160,32 @@ original single `agent-manager` space (pointed at the SecondBrain vault) was a n
 mistake, not a scope decision -- real Agent Manager knowledge now lives in its own
 public content repo, [wikiforge-agent-manager](https://github.com/Grimmethy/wikiforge-agent-manager).
 
+A third space, `wikiforge` (2026-09-28), documents WikiForge's own design/API/dashboard
+integration -- content in its own repo,
+[wikiforge-wiki](https://github.com/Grimmethy/wikiforge-wiki), seeded with real content
+sourced from this README/docs at the time, not placeholders.
+
 Core (adapters, backlinks, journal, categories, templates, share tokens, pages
 orchestration, the HTTP server and its five route groups) is real and tested -- 68
-passing tests. The dashboard integration is real and live: both tab scripts are served
-byte-identical to the files on disk through agent-manager's real route, and the server
-(started via `scripts/start.sh`) returns distinct, correctly-scoped real data for each
-space -- 1,357 SecondBrain pages, and the seeded Agent Manager Wiki content. Not yet
-done: the PropertyForager space/adapter (its content repo,
-[propertyforager-wiki](https://github.com/Grimmethy/propertyforager-wiki), exists but is
-an empty placeholder -- no content design pass has happened yet), and confirming either
-tab renders correctly in an actual browser (verified via the HTTP layer only, not a
-browser session).
+passing tests. The dashboard integration is real and live: all three tab scripts are
+served byte-identical to the files on disk through agent-manager's real route, and the
+server (started via `scripts/start.sh`) returns distinct, correctly-scoped real data for
+each space -- 1,357 SecondBrain pages, the seeded Agent Manager Wiki content, and the
+seeded WikiForge Wiki content (verified directly against `/api/spaces/wikiforge/categories`
+on a throwaway port). Not yet done: the PropertyForager space/adapter (its content repo,
+[propertyforager-wiki](https://github.com/Grimmethy/propertyforager-wiki), now has real,
+growing content via `content-pipeline/` but still no `propertyforager` space/adapter/tab
+of its own), and confirming any tab renders correctly in an actual browser (verified via
+the HTTP layer only, not a browser session).
+
+`content-pipeline/` (added 2026-09-27) is a separate concern from everything above -- not
+a dashboard tab, a real agent-manager task-source plugin (its own `plugins.json` entry,
+`wikiforge-content-pipeline`) that turns a content space's real source pool (transcripts,
+notes, whatever a space configures in `content-pipeline/spaces.json`) into reviewed
+wiki-page candidates and, once approved, real pages in that space's content repo. First
+consumer: propertyforager-wiki's 146 RE-SFA coaching-call transcripts (4 done by hand as
+the quality bar; 142 remain). Required one small agent-manager core addition
+(`src/wiki-content-apply-route.js`, documented in agent-manager's `docs/PLUGIN_API.md`) --
+see that repo's history for why: every existing task source's real write lands in the
+pipeline's single active-project `repoRoot` or `secondBrainDir`, and a wiki-content task's
+real target is neither.
