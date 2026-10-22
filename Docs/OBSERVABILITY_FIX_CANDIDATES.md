@@ -77,3 +77,26 @@ Log the error with sufficient context (spaceId, slug, templateId) before respond
 
 Benefits:  
 Once fixed, failures during template-based page creation will be logged with context, enabling observability and debugging without altering behavior. The system will no longer silently swallow errors — even if they are handled gracefully — making it easier to detect and respond to real-world failures.
+
+### AC-4 · Silent error swallow in wikiforge template fetch
+Strength: Strong
+Files: ui/agent-manager-wiki-tab.js
+Snippet:
+```
+    if (!wikiforgeTemplatesCache) {
+      try {
+        wikiforgeTemplatesCache = await fetchJson(`${base}/api/templates`);
+      } catch (e) {
+        wikiforgeTemplatesCache = [];
+      }
+    }
+```
+
+Problem:
+In `renderAgentManagerWikiTab`, the `catch (e)` block that guards the `fetchJson` call to `${base}/api/templates` assigns an empty array to `wikiforgeTemplatesCache` without ever referencing the caught error `e`. The variable is bound but discarded, so a network failure, a 500 from the server, or a malformed response all produce the exact same observable state as a legitimate empty list: an empty cache with zero log output. Because `wikiforgeTemplatesCache` is a module-level variable that, once set (even to `[]`), short-circuits the `if (!wikiforgeTemplatesCache)` guard on every subsequent render, a single transient failure permanently masks the real templates list for the lifetime of the page session, and no developer or user has any console trace to distinguish "server returned no templates" from "the request never succeeded."
+
+Solution:
+Inside the existing `catch (e)` block, emit `console.error('Failed to fetch wikiforge templates:', e);` immediately before the `wikiforgeTemplatesCache = [];` assignment. This uses only the `console.error` primitive already sanctioned by the project's logging convention, adds no dependency, preserves the graceful-degradation behavior (the app still renders with an empty list rather than crashing), and gives the developer a single, searchable log line that names the endpoint and carries the original error object (status, message, stack) for diagnosis. No rethrow is warranted here because the caller's contract is "best-effort cache population" and the UI is designed to tolerate an empty list.
+
+Benefits:
+A transient or permanent API outage now produces a visible, greppable console entry that identifies the failing endpoint and the underlying error, eliminating the ambiguity between "empty list" and "fetch failed." Debugging time for template-related UI bugs drops from "reproduce and guess" to "read the log line." The module-level cache still degrades gracefully, so no user-facing behavior changes; the fix is purely additive observability.
