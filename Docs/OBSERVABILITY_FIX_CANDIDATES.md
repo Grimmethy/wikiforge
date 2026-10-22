@@ -31,3 +31,26 @@ This logs the error to `console.error` (the only available logging primitive) wh
 
 Benefits:
 Once fixed, operators can detect and debug failures in `handleCategoriesRoute` via console logs — enabling faster incident response and preventing silent degradation of the service. The fix uses only available primitives and does not require adding metrics or external logging systems.
+
+### AC-2 · Silent 500 Errors Without Logging
+Strength: Strong
+Files: src/routes/pages.js
+Snippet:
+```
+    const page = await pages.getHomePage(m[1]);
+    if (!page) return respondJson(res, 404, { error: 'no home page yet' }), true;
+    respondJson(res, 200, page);
+  } catch (err) {
+    respondJson(res, 500, { error: err.message });
+  }
+  return true;
+```
+
+Problem:
+The `catch` block in `handleHomeRoute` emits a 500 response but does not log the error — and since the project has no third-party logging system, the only available primitive is `console.error`. The error is silently swallowed without context, making it impossible to diagnose why a 500 was returned (e.g., database failure, invalid page data). The function contract requires returning `true` on completion, so rethrowing is not an option — but logging is critical for observability.
+
+Solution:
+Log the error with message and stack trace using `console.error`, then return `true` to satisfy the function contract. The response is already emitted, so no further action is needed — but logging ensures the error is captured for debugging.
+
+Benefits:
+Errors that previously went unlogged (like database failures or invalid page data) will now appear in console logs with full context, enabling faster diagnosis and resolution of 500 responses in production.
