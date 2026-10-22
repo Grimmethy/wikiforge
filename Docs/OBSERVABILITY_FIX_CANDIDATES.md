@@ -54,3 +54,26 @@ Log the error with message and stack trace using `console.error`, then return `t
 
 Benefits:
 Errors that previously went unlogged (like database failures or invalid page data) will now appear in console logs with full context, enabling faster diagnosis and resolution of 500 responses in production.
+
+### AC-3 · Silent Error Handling in Page Template Creation
+Strength: Strong
+Files: src/routes/pages.js
+Snippet:
+```
+        try {
+          const created = await pages.createPageFromTemplate(spaceId, slug, body.templateId, { title: body.title });
+          respondJson(res, 201, created);
+        } catch (err) {
+          const status = /already exists/.test(err.message) ? 409 : 400;
+          respondJson(res, status, { error: err.message });
+        }
+```
+
+Problem:  
+The `try...catch` block around `pages.createPageFromTemplate(...)` silently catches and rethrows an error with a status code and message, but does not log the error for observability. In a production environment, this means that failures (e.g., database errors, template resolution failures, or validation errors) are not recorded in logs, making debugging and monitoring impossible. The error is also not rethrown — it’s consumed and returned as a status response — which may mask real system failures.
+
+Solution:  
+Log the error with sufficient context (spaceId, slug, templateId) before responding, and rethrow if needed (though in this case, since the response is already constructed, logging is sufficient for observability hygiene). Since the project has no metrics system, we log to stderr using `console.error` (as this is Node.js code).
+
+Benefits:  
+Once fixed, failures during template-based page creation will be logged with context, enabling observability and debugging without altering behavior. The system will no longer silently swallow errors — even if they are handled gracefully — making it easier to detect and respond to real-world failures.
