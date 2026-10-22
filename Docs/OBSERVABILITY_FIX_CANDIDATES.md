@@ -100,3 +100,26 @@ Inside the existing `catch (e)` block, emit `console.error('Failed to fetch wiki
 
 Benefits:
 A transient or permanent API outage now produces a visible, greppable console entry that identifies the failing endpoint and the underlying error, eliminating the ambiguity between "empty list" and "fetch failed." Debugging time for template-related UI bugs drops from "reproduce and guess" to "read the log line." The module-level cache still degrades gracefully, so no user-facing behavior changes; the fix is purely additive observability.
+
+### AC-5 · Silent Error Swallowing in Page Detail Rendering
+Strength: Strong
+Files: ui/agent-manager-wiki-tab.js
+Snippet:
+```
+      try {
+        const page = await fetchJson(`${base}/api/spaces/${WIKIFORGE_SPACE_ID}/pages/${encodeURIComponent(wikiforgeSelectedSlug)}`);
+        detailHtml = renderPageDetail(page);
+      } catch (e) {
+        detailHtml = `<div class="wikiforge-page-detail"><em>Could not load page: ${escapeHtml(e.message)}</em></div>`;
+      }
+    }
+```
+
+Problem:
+The `try...catch` block around line 206–226 catches an error from `fetchJson` but does not log the error or rethrow it. Instead, it renders a generic user-facing message “Could not load page: ...”, which hides the root cause (network failure, backend error, malformed response) from developers and ops teams. Since the project has no metrics system, no telemetry can be emitted, but `console.error` is already used elsewhere in the codebase for error reporting — making logging the only viable observability path. The error is silently swallowed without trace, making debugging impossible.
+
+Solution:
+Log the caught error with sufficient context using `console.error` so that it appears in console output or logs (if the app runs in a logged environment). The fix preserves the user-facing message while surfacing the error to developers. No rethrow is needed since no caller is designed to handle it — the fix only ensures observability.
+
+Benefits:
+Once fixed, any failure to load a page (due to network, backend, or response issues) will be visible in console logs or server logs, enabling faster debugging and root-cause analysis. The user experience remains unchanged — the error message is still shown — but the system now has observability for the underlying failure.
