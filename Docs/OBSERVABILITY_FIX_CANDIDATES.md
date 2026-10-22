@@ -123,3 +123,35 @@ Log the caught error with sufficient context using `console.error` so that it ap
 
 Benefits:
 Once fixed, any failure to load a page (due to network, backend, or response issues) will be visible in console logs or server logs, enabling faster debugging and root-cause analysis. The user experience remains unchanged — the error message is still shown — but the system now has observability for the underlying failure.
+
+### AC-6 · Silent error swallow in wikiforge template cache fetch
+Strength: Strong
+Files: ui/secondbrain-tab.js
+Snippet:
+```
+    if (!wikiforgeTemplatesCache) {
+      try {
+        wikiforgeTemplatesCache = await fetchJson(`${base}/api/templates`);
+      } catch (e) {
+        wikiforgeTemplatesCache = [];
+      }
+    }
+```
+
+Problem:
+Inside `renderSecondBrainTab`, the `catch (e)` block that guards the `fetchJson(`${base}/api/templates`)` call assigns `wikiforgeTemplatesCache = []` and then discards the caught error entirely. There is no `console.error`, no `console.warn`, no rethrow, and no other surfacing. If the `/api/templates` endpoint is down, misconfigured, or returns a non-JSON body, the tab silently renders an empty template set and the operator has zero signal that the fetch failed. Because this project has no metrics/telemetry system and no third-party logging framework, the only available primitive is the `console` API, and the error is currently invisible.
+
+Solution:
+Add a single `console.error` call inside the existing `catch (e)` block, before the `wikiforgeTemplatesCache = []` assignment, that logs the caught error object together with the URL that was fetched so the operator can identify which request failed. The `wikiforgeTemplatesCache = []` fallback assignment is preserved exactly as-is (no rethrow, no change to control flow), so the function still degrades gracefully to an empty template list. No new dependency is introduced and no metric or counter is fabricated.
+
+Benefits:
+Once the endpoint fails, the operator sees a clear, context-rich error in the Node console (including the URL and the original error stack) instead of a silent empty template list. This makes the failure diagnosable without adding any new infrastructure, while the graceful-degradation contract (render with an empty cache rather than crash) remains intact.
+
+```js
+      try {
+        wikiforgeTemplatesCache = await fetchJson(`${base}/api/templates`);
+      } catch (e) {
+        console.error(`[wikiforge] failed to load templates from ${base}/api/templates; rendering with empty cache`, e);
+        wikiforgeTemplatesCache = [];
+      }
+```
