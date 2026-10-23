@@ -11,6 +11,7 @@ async function handleCategoriesRoute(req, res, url) {
   try {
     respondJson(res, 200, await pages.listPagesGroupedByCategory(m[1]));
   } catch (err) {
+    console.error('handleCategoriesRoute', err);
     respondJson(res, 500, { error: err.message });
   }
   return true;
