@@ -28,6 +28,7 @@ async function handleHomeRoute(req, res, url) {
     if (!page) return respondJson(res, 404, { error: 'no home page yet' }), true;
     respondJson(res, 200, page);
   } catch (err) {
+    console.error('pages: home route 500', m[1], err.message, err.stack);
     respondJson(res, 500, { error: err.message });
   }
   return true;
