@@ -191,6 +191,7 @@
       try {
         wikiforgeTemplatesCache = await fetchJson(`${base}/api/templates`);
       } catch (e) {
+        console.error("Failed to fetch wikiforge templates:", e);
         wikiforgeTemplatesCache = [];
       }
     }
