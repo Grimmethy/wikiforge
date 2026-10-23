@@ -67,6 +67,7 @@ async function handlePagesRoute(req, res, url) {
           const created = await pages.createPageFromTemplate(spaceId, slug, body.templateId, { title: body.title });
           respondJson(res, 201, created);
         } catch (err) {
+          console.error('page-template-create', { spaceId, slug, templateId: body.templateId, message: err.message, stack: err.stack });
           const status = /already exists/.test(err.message) ? 409 : 400;
           respondJson(res, status, { error: err.message });
         }
