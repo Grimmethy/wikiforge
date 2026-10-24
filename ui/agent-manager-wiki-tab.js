@@ -217,6 +217,7 @@
         const page = await fetchJson(`${base}/api/spaces/${WIKIFORGE_SPACE_ID}/pages/${encodeURIComponent(wikiforgeSelectedSlug)}`);
         detailHtml = renderPageDetail(page);
       } catch (e) {
+        console.error("wikiforge: failed to load page detail", { slug: wikiforgeSelectedSlug, spaceId: WIKIFORGE_SPACE_ID }, e);
         detailHtml = `<div class="wikiforge-page-detail"><em>Could not load page: ${escapeHtml(e.message)}</em></div>`;
       }
     }
