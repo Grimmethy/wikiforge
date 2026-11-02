@@ -105,6 +105,11 @@ function register({ spaces, taskIdExistsInQueue }) {
     buildImplementPrompt: wikiPagePromoteImplementPrompt,
     // Same reasoning as wiki_transcript_extract's noAutoRetry -- see that file's comment.
     noAutoRetry: true,
+    // The model's whole answer is the one-word verdict CONFIRMED or FLAG-ISSUE (see applyWikiPagePromote: the page body comes from promptContext, never from the
+    // model). Core's non-implementation gate blocks any fence-free response under 80 characters as "a bare tool-call request or meta-commentary", so the
+    // CORRECT answer 'CONFIRMED' blocked 14 promote tasks in wikiforge-pipeline (2026-10-24..30). advisoryProse is the flag core reads to exempt a source whose
+    // valid output is prose or a short verdict (function_length_review, change_review, triage-gate use it).
+    advisoryProse: true,
   });
 }
 
