@@ -264,3 +264,136 @@ Each sub-function is now testable in isolation, easier to review, and less prone
 
 VERDICT CONSTRAINT:
 Genuine
+
+### AC-3 · Decompose Long Agent Manager Wiki Tab Render Function
+Strength: Strong
+Files: ui/agent-manager-wiki-tab.js
+Symbol: renderAgentManagerWikiTab
+Snippet:
+```
+  }
+
+  async function renderAgentManagerWikiTab() {
+    const main = document.getElementById('main');
+    const base = wikiforgeBaseUrl();
+
+    if (!wikiforgeTemplatesCache) {
+      try {
+        wikiforgeTemplatesCache = await fetchJson(`${base}/api/templates`);
+      } catch (e) {
+        wikiforgeTemplatesCache = [];
+      }
+    }
+
+    let categories;
+    try {
+      categories = await fetchJson(`${base}/api/spaces/${WIKIFORGE_SPACE_ID}/categories`);
+    } catch (e) {
+      main.innerHTML = `<div class="wikiforge-layout"><h3>Agent Manager Wiki</h3>
+        <p>Could not reach WikiForge at <code>${escapeHtml(base)}</code>: ${escapeHtml(e.message)}</p>
+        <p>Start it with: <code>scripts/start.sh</code> from the wikiforge repo.</p></div>`;
+      return;
+    }
+
+    const pageCount = categories.reduce((n, c) => n + c.pages.length, 0);
+    const renderKey = `${pageCount}:${wikiforgeSelectedSlug}:${wikiforgeNewPageOpen}:${wikiforgeCreateError}`;
+    if (renderKey === wikiforgeLastRenderedKey && main.querySelector('.wikiforge-layout')) return;
+    wikiforgeLastRenderedKey = renderKey;
+
+    let detailHtml = '<div class="wikiforge-page-detail"><em>Select a page from the sidebar.</em></div>';
+    if (wikiforgeSelectedSlug) {
+      try {
+        const page = await fetchJson(`${base}/api/spaces/${WIKIFORGE_SPACE_ID}/pages/${encodeURIComponent(wikiforgeSelectedSlug)}`);
+        detailHtml = renderPageDetail(page);
+      } catch (e) {
+        detailHtml = `<div class="wikiforge-page-detail"><em>Could not load page: ${escapeHtml(e.message)}</em></div>`;
+      }
+    }
+
+    main.innerHTML = `
+      <div class="wikiforge-layout" style="display:flex;gap:16px;align-items:flex-start">
+        <div style="flex:0 0 280px;max-height:calc(100vh - 160px);overflow:auto">${renderSidebar(categories)}</div>
+        <div style="flex:1;max-height:calc(100vh - 160px);overflow:auto">${detailHtml}</div>
+      </div>`;
+
+    main.querySelectorAll('[data-wikiforge-slug]').forEach((el) => {
+      el.onclick = (ev) => {
+        ev.preventDefault();
+        wikiforgeSelectedSlug = el.dataset.wikiforgeSlug;
+        wikiforgeLastRenderedKey = null;
+        renderAgentManagerWikiTab();
+      };
+    });
+
+    main.querySelectorAll('[data-wikiforge-toggle-key]').forEach((el) => {
+      el.addEventListener('toggle', () => {
+        const key = el.dataset.wikiforgeToggleKey;
+        if (el.open) wikiforgeExpandedKeys.add(key);
+        else wikiforgeExpandedKeys.delete(key);
+      });
+    });
+
+    const newPageBtn = main.querySelector('[data-wikiforge-new-page]');
+    if (newPageBtn) {
+      newPageBtn.onclick = () => {
+        wikiforgeNewPageOpen = true;
+        wikiforgeCreateError = null;
+        wikiforgeLastRenderedKey = null;
+        renderAgentManagerWikiTab();
+      };
+    }
+    const cancelBtn = main.querySelector('[data-wikiforge-cancel-new-page]');
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        wikiforgeNewPageOpen = false;
+        wikiforgeCreateError = null;
+        wikiforgeLastRenderedKey = null;
+        renderAgentManagerWikiTab();
+      };
+    }
+    const form = main.querySelector('[data-wikiforge-new-page-form]');
+    if (form) {
+      form.oninput = (ev) => {
+        if (ev.target.name === 'title' && !form.elements.slug.dataset.wikiforgeTouched) {
+          form.elements.slug.value = wikiforgeSlugify(ev.target.value);
+        }
+      };
+      form.elements.slug.oninput = () => {
+        form.elements.slug.dataset.wikiforgeTouched = 'true';
+      };
+      form.onsubmit = async (ev) => {
+        ev.preventDefault();
+        const templateId = form.elements.templateId.value;
+        const title = form.elements.title.value;
+        const slug = form.elements.slug.value;
+        try {
+          await wikiforgeCreatePage(base, slug, templateId, title);
+          wikiforgeSelectedSlug = slug;
+          wikiforgeNewPageOpen = false;
+          wikiforgeCreateError = null;
+          wikiforgeExpandedKeys.add(`cat:${WIKIFORGE_TEMPLATE_CATEGORY[templateId] || wikiforgeCategoryFor({ slug, fields: {} })}`);
+        } catch (e) {
+          wikiforgeCreateError = e.message;
+        }
+        wikiforgeLastRenderedKey = null;
+        renderAgentManagerWikiTab();
+      };
+    }
+  }
+```
+
+Problem:
+The function `renderAgentManagerWikiTab` is 107 lines and orchestrates multiple unrelated responsibilities: template fetching, category data handling, render key calculation, sidebar/detail rendering, event listener setup, and form state management. These concerns are tightly coupled, making the function hard to test, debug, or extend without introducing side effects. For example, changing how form validation works could unintentionally affect sidebar rendering logic due to shared state or event handlers.
+
+Solution:
+Extract the following into separate, named functions:  
+- `fetchAndCacheTemplates(base)` — handles template fetching and caching.  
+- `fetchCategoriesWithFallback(spaceId, base)` — fetches categories with error fallback and state updates.  
+- `shouldRender(renderKey, currentKey)` — checks if render key has changed to avoid redundant work.  
+- `renderSidebar(categories, base)` — renders sidebar content independently.  
+- `renderPageDetail(page, base)` — renders page detail independently.  
+- `setupEventListeners(main, base)` — encapsulates all event listener bindings.  
+- `handleNewPageForm(form, base)` — manages form state, validation, and submission logic.
+
+Benefits:
+Decomposing this function improves testability by isolating each concern, reduces cognitive load during review, and enables independent refactoring or extension without risking unintended side effects. It also makes it easier to reason about the function’s behavior under different states — e.g., when categories fail to load or when a new page is submitted — because each piece is self-contained and verifiable.
