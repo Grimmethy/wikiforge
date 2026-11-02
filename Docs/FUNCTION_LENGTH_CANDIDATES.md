@@ -397,3 +397,129 @@ Extract the following into separate, named functions:
 
 Benefits:
 Decomposing this function improves testability by isolating each concern, reduces cognitive load during review, and enables independent refactoring or extension without risking unintended side effects. It also makes it easier to reason about the function’s behavior under different states — e.g., when categories fail to load or when a new page is submitted — because each piece is self-contained and verifiable.
+
+### AC-4 · Decompose Monolithic UI Orchestrator
+Strength: Strong
+Files: ui/propertyforager-wiki-tab.js
+Symbol: renderPropertyForagerWikiTab
+Snippet:
+```
+  }
+
+  async function renderPropertyForagerWikiTab() {
+    const main = document.getElementById('main');
+    const base = wikiforgeBaseUrl();
+
+    if (!wikiforgeTemplatesCache) {
+      try {
+        wikiforgeTemplatesCache = await fetchJson(`${base}/api/templates`);
+      } catch (e) {
+        wikiforgeTemplatesCache = [];
+      }
+    }
+
+    let categories;
+    try {
+      categories = await fetchJson(`${base}/api/spaces/${WIKIFORGE_SPACE_ID}/categories`);
+    } catch (e) {
+      main.innerHTML = `<div class="wikiforge-layout"><h3>PropertyForager Wiki</h3>
+        <p>Could not reach WikiForge at <code>${escapeHtml(base)}</code>: ${escapeHtml(e.message)}</p>
+        <p>Start it with: <code>scripts/start.sh</code> from the wikiforge repo.</p></div>`;
+      return;
+    }
+
+    const pageCount = categories.reduce((n, c) => n + c.pages.length, 0);
+    const renderKey = `${pageCount}:${wikiforgeSelectedSlug}:${wikiforgeNewPageOpen}:${wikiforgeCreateError}`;
+    if (renderKey === wikiforgeLastRenderedKey && main.querySelector('.wikiforge-layout')) return;
+    wikiforgeLastRenderedKey = renderKey;
+
+    let detailHtml = '<div class="wikiforge-page-detail"><em>Select a page from the sidebar.</em></div>';
+    if (wikiforgeSelectedSlug) {
+      try {
+        const page = await fetchJson(`${base}/api/spaces/${WIKIFORGE_SPACE_ID}/pages/${encodeURIComponent(wikiforgeSelectedSlug)}`);
+        detailHtml = renderPageDetail(page);
+      } catch (e) {
+        detailHtml = `<div class="wikiforge-page-detail"><em>Could not load page: ${escapeHtml(e.message)}</em></div>`;
+      }
+    }
+
+    main.innerHTML = `
+      <div class="wikiforge-layout" style="display:flex;gap:16px;align-items:flex-start">
+        <div style="flex:0 0 280px;max-height:calc(100vh - 160px);overflow:auto">${renderSidebar(categories)}</div>
+        <div style="flex:1;max-height:calc(100vh - 160px);overflow:auto">${detailHtml}</div>
+      </div>`;
+
+    main.querySelectorAll('[data-wikiforge-slug]').forEach((el) => {
+      el.onclick = (ev) => {
+        ev.preventDefault();
+        wikiforgeSelectedSlug = el.dataset.wikiforgeSlug;
+        wikiforgeLastRenderedKey = null;
+        renderPropertyForagerWikiTab();
+      };
+    });
+
+    main.querySelectorAll('[data-wikiforge-toggle-key]').forEach((el) => {
+      el.addEventListener('toggle', () => {
+        const key = el.dataset.wikiforgeToggleKey;
+        if (el.open) wikiforgeExpandedKeys.add(key);
+        else wikiforgeExpandedKeys.delete(key);
+      });
+    });
+
+    const newPageBtn = main.querySelector('[data-wikiforge-new-page]');
+    if (newPageBtn) {
+      newPageBtn.onclick = () => {
+        wikiforgeNewPageOpen = true;
+        wikiforgeCreateError = null;
+        wikiforgeLastRenderedKey = null;
+        renderPropertyForagerWikiTab();
+      };
+    }
+    const cancelBtn = main.querySelector('[data-wikiforge-cancel-new-page]');
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        wikiforgeNewPageOpen = false;
+        wikiforgeCreateError = null;
+        wikiforgeLastRenderedKey = null;
+        renderPropertyForagerWikiTab();
+      };
+    }
+    const form = main.querySelector('[data-wikiforge-new-page-form]');
+    if (form) {
+      form.oninput = (ev) => {
+        if (ev.target.name === 'title' && !form.elements.slug.dataset.wikiforgeTouched) {
+          form.elements.slug.value = wikiforgeSlugify(ev.target.value);
+        }
+      };
+      form.elements.slug.oninput = () => {
+        form.elements.slug.dataset.wikiforgeTouched = 'true';
+      };
+      form.onsubmit = async (ev) => {
+        ev.preventDefault();
+        const templateId = form.elements.templateId.value;
+        const title = form.elements.title.value;
+        const slug = form.elements.slug.value;
+        try {
+          await wikiforgeCreatePage(base, slug, templateId, title);
+          wikiforgeSelectedSlug = slug;
+          wikiforgeNewPageOpen = false;
+          wikiforgeCreateError = null;
+          wikiforgeExpandedKeys.add(`cat:${WIKIFORGE_TEMPLATE_CATEGORY[templateId] || wikiforgeCategoryFor({ slug, fields: {} })}`);
+        } catch (e) {
+          wikiforgeCreateError = e.message;
+        }
+        wikiforgeLastRenderedKey = null;
+        renderPropertyForagerWikiTab();
+      };
+    }
+  }
+```
+
+Problem:
+The function orchestrates multiple distinct responsibilities — fetching and caching templates, fetching and rendering categories, rendering sidebar and detail content, wiring up event listeners for UI interactions, and managing state via global variables. Each of these concerns could be isolated into its own function with clear, testable boundaries. The current structure mixes I/O, DOM manipulation, state mutation, and UI event binding into a single monolithic block, making it hard to reason about, test, or modify without risking side effects. Decomposing it would improve readability, testability, and maintainability.
+
+Solution:
+Extract six logical functions: `fetchAndCacheTemplates(base)`, `fetchAndRenderCategories(base, spaceId)`, `renderSidebar(categories)`, `renderPageDetail(page)`, `wireEventListeners(main)`, and `updateStateAndReRender()`. Each should handle one responsibility, with clear inputs and outputs. The main function becomes a coordinator that calls these in sequence, passing context as needed, and triggering re-renders or state updates only when necessary.
+
+Benefits:
+Decomposing this function improves readability by isolating concerns, enables unit testing of each piece independently, and reduces risk during modification — changes to UI logic won’t accidentally break state management or event handling. It also makes the codebase more maintainable over time as the UI evolves.
