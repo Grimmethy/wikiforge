@@ -1,6 +1,7 @@
 {
   "propertyforager": {
     "label": "PropertyForager / RE-SFA coaching transcripts",
+    "homePipelineDir": "/media/model-cache/github/wikiforge-pipeline",
     "contentRepoRoot": "/media/model-cache/github/propertyforager-wiki",
     "sourcePool": "/media/wok/model-cache/projects/RE-SFA-Meeting-Transcripts/normalized",
     "categories": [

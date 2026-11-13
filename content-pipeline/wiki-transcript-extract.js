@@ -13,6 +13,7 @@ const { registerTaskSource } = require('agent-manager/src/task-source-registry.j
 const { isCovered, readCoverage, updateCoverageEntry } = require('./coverage-store.js');
 const { appendCandidates, candidatesDocPath } = require('./candidate-block.js');
 const { wikiTranscriptExtractPlanPrompt, wikiTranscriptExtractImplementPrompt } = require('./prompts.js');
+const { isHomePipeline } = require('./home-gate.js');
 
 function slugifyForId(str) {
   return String(str).toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '').replace(/[^a-z0-9]+/g, '-');
@@ -39,8 +40,10 @@ function sessionDateFromTranscriptId(transcriptId) {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
 }
 
-function nextWikiTranscriptExtractTask({ spaces, taskIdExistsInQueue }) {
+// Emission is home-pipeline-only (home-gate.js): every pipeline loads this plugin, and each minted its own copy of the same uncovered transcripts.
+function nextWikiTranscriptExtractTask({ spaces, taskIdExistsInQueue, env = process.env }) {
   for (const [spaceId, space] of Object.entries(spaces)) {
+    if (!isHomePipeline(space, env)) continue;
     let files;
     try {
       files = fs.readdirSync(space.sourcePool).filter((f) => !f.startsWith('.'));
