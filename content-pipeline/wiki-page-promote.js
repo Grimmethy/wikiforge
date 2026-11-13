@@ -13,13 +13,15 @@ const { registerTaskSource } = require('agent-manager/src/task-source-registry.j
 const { allUnpromotedCandidates, markCandidatePromoted, unpromotedCountForTranscript } = require('./candidate-block.js');
 const { readCoverage, updateCoverageEntry } = require('./coverage-store.js');
 const { wikiPagePromotePlanPrompt, wikiPagePromoteImplementPrompt } = require('./prompts.js');
+const { isHomePipeline } = require('./home-gate.js');
 
 function slugifyForId(str) {
   return String(str).toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '').replace(/[^a-z0-9]+/g, '-');
 }
 
-function nextWikiPagePromoteTask({ spaces, taskIdExistsInQueue }) {
+function nextWikiPagePromoteTask({ spaces, taskIdExistsInQueue, env = process.env }) {
   for (const [spaceId, space] of Object.entries(spaces)) {
+    if (!isHomePipeline(space, env)) continue; // home pipeline only, see home-gate.js
     // Try each unpromoted candidate in document order, not just the oldest -- a task id
     // already queued (still blocked/pending from an earlier attempt) must not block
     // every OTHER real, ready candidate behind it from ever getting queued.
